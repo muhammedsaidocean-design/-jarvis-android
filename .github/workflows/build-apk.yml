@@ -1,0 +1,59 @@
+
+name: Build JARVIS APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract project
+        run: |
+          unzip -q JARVIS_APK_Project.zip
+          cd JARVIS_APK_Project
+          echo "PROJECT_DIR=$PWD" >> $GITHUB_ENV
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npm install
+
+      - name: Generate Android project
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npx cap add android
+
+      - name: Prepare permissions
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: node scripts/prepare-android.mjs
+
+      - name: Sync Android
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npx cap sync android
+
+      - name: Build APK
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-APK
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
